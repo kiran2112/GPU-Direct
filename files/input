@@ -1,0 +1,6 @@
+nx,ny,nz,nv
+   128,128,128,3
+tasks per node
+   6
+nsteps
+   10

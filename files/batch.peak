@@ -1,0 +1,45 @@
+#!/bin/bash
+#BSUB -P GEN010
+#BSUB -J MPI-RMA
+#BSUB -o stdout.%J
+#BSUB -e stderr.%J
+#BSUB -W 00:10
+#BSUB -q batch
+#BSUB -nnodes 1
+#BSUB -alloc_flags "gpumps smt4"
+
+set echo
+
+module load cuda
+module list
+
+exec=/home/kiran92/GPU-DIRECT/GPU_DIRECT.x
+
+nnodes=1 # number of nodes
+nrs=6 # number of resources
+trs=1 # tasks per resource
+grs=1 # gpus per resource
+crs=7 # cores per resource
+ntasks=$((nrs*trs))
+export TASKS_PER_NODE=$((ntasks/nnodes))
+nthr=$((crs/trs))
+
+export OMP_NUM_THREADS=$nthr
+# following env was found to give better MPI_A2A perf
+export PAMI_ENABLE_STRIPING=0
+export PAMI_IBV_ADAPTER_AFFINITY=1
+export PAMI_IBV_DEVICE_NAME="mlx5_0:1"
+export PAMI_IBV_DEVICE_NAME_1="mlx5_3:1"
+# enable adaptive routing
+export PAMI_IBV_ENABLE_OOO_AR=1
+export PAMI_IBV_QP_SERVICE_LEVEL=8
+#export NLSPATH=$OLCF_XL_ROOT/msg/en_US.UTF-8/%N:$OLCF_XLF_ROOT/msg/en_US.UTF-8/%N:$OLCF_XLC_ROOT/msg/en_US.UTF-8/%N
+source $OLCF_SPECTRUM_MPI_ROOT/jsm_pmix/bin/export_smpi_env -gpu
+date
+
+echo "Started $exec in $pwd using $ntasks tasks and $nthr threads"
+jsrun -n $nrs -a $trs -c $crs -g $grs \
+   --bind=proportional-packed:$crs \
+   -d plane:$trs $exec 1> stdout 2> stderr
+echo "Completed"
+chmod go+r *
